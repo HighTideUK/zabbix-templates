@@ -1,0 +1,933 @@
+zabbix_export:
+  version: '6.0'
+  date: '2026-09-29T00:00:00Z'
+  groups:
+    - uuid: 134e616fc71643a29ba504926749c4fd
+      name: Templates/Telephony
+  templates:
+    - uuid: fc5bdeac87454581b0faf51c24f03c20
+      template: 'Yeastar P-Series by SNMP'
+      name: 'Yeastar P-Series by SNMP'
+      description: |
+        Yeastar P-Series PBX (Appliance / Software Edition) via SNMP, based on YEASTAR-P-SERIES-V1 MIB (enterprise 1.3.6.1.4.1.22736.3).
+        Requires PBX firmware 37.18.0.18+ (Appliance) with SNMP enabled. Set SNMPv3 credentials on the host's SNMP interface (PBX supports MD5 auth / DES priv).
+        Extension alerting is OFF by default: enable per extension with context macro {$YEASTAR.EXT.ALERT:"<ext>"}=1.
+        Trunk alerting is ON by default: disable per trunk with {$YEASTAR.TRUNK.ALERT:"<trunk name>"}=0.
+        Trap items need snmptrapd + Zabbix SNMP trapper configured on the server/proxy.
+        Built by High Tide Group.
+      groups:
+        - name: Templates/Telephony
+      items:
+        # ---------------- System ----------------
+        - uuid: c5df9538f78a47c5ac9216198fe50ed6
+          name: 'Yeastar: Product model'
+          type: SNMP_AGENT
+          snmp_oid: 1.3.6.1.4.1.22736.3.1.1.0
+          key: yeastar.model
+          delay: 1h
+          history: 7d
+          trends: '0'
+          value_type: CHAR
+          inventory_link: MODEL
+          preprocessing:
+            - type: DISCARD_UNCHANGED_HEARTBEAT
+              parameters:
+                - 1d
+          tags:
+            - tag: component
+              value: system
+        - uuid: 200213e2f01f45e89d887eb74c432283
+          name: 'Yeastar: Hardware version'
+          type: SNMP_AGENT
+          snmp_oid: 1.3.6.1.4.1.22736.3.1.2.0
+          key: yeastar.hardware
+          delay: 1h
+          history: 7d
+          trends: '0'
+          value_type: CHAR
+          inventory_link: HARDWARE
+          preprocessing:
+            - type: DISCARD_UNCHANGED_HEARTBEAT
+              parameters:
+                - 1d
+          tags:
+            - tag: component
+              value: system
+        - uuid: 8ffb3e28c8c3460e929684c20b792e3d
+          name: 'Yeastar: Firmware version'
+          type: SNMP_AGENT
+          snmp_oid: 1.3.6.1.4.1.22736.3.1.3.0
+          key: yeastar.firmware
+          delay: 1h
+          history: 90d
+          trends: '0'
+          value_type: CHAR
+          inventory_link: OS
+          preprocessing:
+            - type: DISCARD_UNCHANGED_HEARTBEAT
+              parameters:
+                - 1d
+          tags:
+            - tag: component
+              value: system
+          triggers:
+            - uuid: 91f4428033d04997b1d88ed4e03984f6
+              expression: 'last(/Yeastar P-Series by SNMP/yeastar.firmware,#1)<>last(/Yeastar P-Series by SNMP/yeastar.firmware,#2) and length(last(/Yeastar P-Series by SNMP/yeastar.firmware))>0'
+              name: 'Yeastar: Firmware version has changed'
+              opdata: 'Current: {ITEM.LASTVALUE1}'
+              priority: INFO
+              manual_close: 'YES'
+              tags:
+                - tag: scope
+                  value: notice
+        - uuid: cfccaf3882354124b10ea64682c19b9d
+          name: 'Yeastar: Serial number'
+          type: SNMP_AGENT
+          snmp_oid: 1.3.6.1.4.1.22736.3.1.4.0
+          key: yeastar.serial
+          delay: 1h
+          history: 90d
+          trends: '0'
+          value_type: CHAR
+          inventory_link: SERIALNO_A
+          preprocessing:
+            - type: DISCARD_UNCHANGED_HEARTBEAT
+              parameters:
+                - 1d
+          tags:
+            - tag: component
+              value: system
+          triggers:
+            - uuid: fd5af68d3f754e719febcf64f327cc03
+              expression: 'last(/Yeastar P-Series by SNMP/yeastar.serial,#1)<>last(/Yeastar P-Series by SNMP/yeastar.serial,#2) and length(last(/Yeastar P-Series by SNMP/yeastar.serial))>0'
+              name: 'Yeastar: Serial number has changed (device replaced?)'
+              opdata: 'Current: {ITEM.LASTVALUE1}'
+              priority: INFO
+              manual_close: 'YES'
+              tags:
+                - tag: scope
+                  value: notice
+        - uuid: 234387bdad3440ef85a0c1aeb1db03fc
+          name: 'Yeastar: Uptime'
+          type: SNMP_AGENT
+          snmp_oid: 1.3.6.1.4.1.22736.3.1.5.0
+          key: yeastar.uptime
+          delay: 5m
+          history: 7d
+          units: uptime
+          description: 'pUptime is a string such as "18 days 00:18:26"; converted to seconds.'
+          preprocessing:
+            - type: JAVASCRIPT
+              parameters:
+                - |
+                  var m = value.match(/(?:(\d+)\s*days?,?\s*)?(\d+):(\d+):(\d+)/);
+                  if (!m) { throw 'Cannot parse uptime: ' + value; }
+                  return (parseInt(m[1] || 0, 10) * 86400) + (parseInt(m[2], 10) * 3600) + (parseInt(m[3], 10) * 60) + parseInt(m[4], 10);
+          tags:
+            - tag: component
+              value: system
+          triggers:
+            - uuid: 6bc64f37c5f5471db7458d23657b0354
+              expression: 'last(/Yeastar P-Series by SNMP/yeastar.uptime)<10m'
+              name: 'Yeastar: PBX has been restarted'
+              opdata: 'Uptime: {ITEM.LASTVALUE1}'
+              priority: WARNING
+              manual_close: 'YES'
+              tags:
+                - tag: scope
+                  value: availability
+        - uuid: 997ce0a52c814031b46a8e24a0388348
+          name: 'Yeastar: Local storage utilisation'
+          type: SNMP_AGENT
+          snmp_oid: 1.3.6.1.4.1.22736.3.1.6.0
+          key: yeastar.storage.util
+          delay: 5m
+          history: 30d
+          value_type: FLOAT
+          units: '%'
+          preprocessing:
+            - type: REGEX
+              parameters:
+                - '([0-9.]+)'
+                - \1
+          tags:
+            - tag: component
+              value: storage
+          triggers:
+            - uuid: 7975fdb72c234f76b632c7db7c053032
+              expression: 'min(/Yeastar P-Series by SNMP/yeastar.storage.util,5m)>{$YEASTAR.STORAGE.UTIL.CRIT}'
+              name: 'Yeastar: Local storage critically full'
+              opdata: 'Used: {ITEM.LASTVALUE1}'
+              priority: HIGH
+              tags:
+                - tag: scope
+                  value: capacity
+            - uuid: 4186cdcc754345db80cc7e4f38c2e336
+              expression: 'min(/Yeastar P-Series by SNMP/yeastar.storage.util,5m)>{$YEASTAR.STORAGE.UTIL.WARN}'
+              name: 'Yeastar: Local storage running low'
+              opdata: 'Used: {ITEM.LASTVALUE1}'
+              priority: WARNING
+              dependencies:
+                - name: 'Yeastar: Local storage critically full'
+                  expression: 'min(/Yeastar P-Series by SNMP/yeastar.storage.util,5m)>{$YEASTAR.STORAGE.UTIL.CRIT}'
+              tags:
+                - tag: scope
+                  value: capacity
+        - uuid: da5979450ff9443ead24148ef204e39d
+          name: 'Yeastar: Memory utilisation'
+          type: SNMP_AGENT
+          snmp_oid: 1.3.6.1.4.1.22736.3.1.7.0
+          key: yeastar.memory.util
+          delay: 1m
+          history: 30d
+          value_type: FLOAT
+          units: '%'
+          preprocessing:
+            - type: REGEX
+              parameters:
+                - '([0-9.]+)'
+                - \1
+          tags:
+            - tag: component
+              value: memory
+          triggers:
+            - uuid: 8fac936d87ee408a847648e7b3469b0f
+              expression: 'min(/Yeastar P-Series by SNMP/yeastar.memory.util,5m)>{$YEASTAR.MEMORY.UTIL.MAX}'
+              name: 'Yeastar: High memory utilisation'
+              opdata: 'Used: {ITEM.LASTVALUE1}'
+              priority: AVERAGE
+              tags:
+                - tag: scope
+                  value: performance
+        - uuid: 334ee512daea43ca877e9e834f1114c7
+          name: 'Yeastar: CPU utilisation'
+          type: SNMP_AGENT
+          snmp_oid: 1.3.6.1.4.1.22736.3.1.8.0
+          key: yeastar.cpu.util
+          delay: 1m
+          history: 30d
+          value_type: FLOAT
+          units: '%'
+          preprocessing:
+            - type: REGEX
+              parameters:
+                - '([0-9.]+)'
+                - \1
+          tags:
+            - tag: component
+              value: cpu
+          triggers:
+            - uuid: 49173aa854eb45d0acd2a8cd0a61a5db
+              expression: 'min(/Yeastar P-Series by SNMP/yeastar.cpu.util,5m)>{$YEASTAR.CPU.UTIL.CRIT}'
+              name: 'Yeastar: High CPU utilisation'
+              opdata: 'CPU: {ITEM.LASTVALUE1}'
+              priority: WARNING
+              tags:
+                - tag: scope
+                  value: performance
+        - uuid: 8ecdf585549e4805b75974afb9fe5654
+          name: 'Yeastar: Concurrent calls'
+          type: SNMP_AGENT
+          snmp_oid: 1.3.6.1.4.1.22736.3.1.9.0
+          key: yeastar.calls.concurrent
+          delay: 1m
+          history: 30d
+          units: calls
+          tags:
+            - tag: component
+              value: calls
+          triggers:
+            - uuid: b427cec43fec44708f157d628a36eaa4
+              expression: 'nodata(/Yeastar P-Series by SNMP/yeastar.calls.concurrent,{$YEASTAR.NODATA.TIMEOUT})=1'
+              name: 'Yeastar: No SNMP data from PBX'
+              priority: HIGH
+              description: 'No data received for {$YEASTAR.NODATA.TIMEOUT}. PBX down, SNMP disabled, credentials changed or path blocked.'
+              tags:
+                - tag: scope
+                  value: availability
+            - uuid: af7617ef01d84eb3abd34b485feb6832
+              expression: 'min(/Yeastar P-Series by SNMP/yeastar.calls.concurrent,5m)>={$YEASTAR.CALLS.MAX}*{$YEASTAR.CALLS.WARN.PCT}/100'
+              name: 'Yeastar: Concurrent calls approaching licence limit'
+              opdata: 'Calls: {ITEM.LASTVALUE1} of {$YEASTAR.CALLS.MAX}'
+              priority: WARNING
+              tags:
+                - tag: scope
+                  value: capacity
+        - uuid: 0d1564b7b76b47bb99289005b1154ca3
+          name: 'Yeastar: CPU load average (raw)'
+          type: SNMP_AGENT
+          snmp_oid: 1.3.6.1.4.1.22736.3.1.10.0
+          key: yeastar.cpu.load.raw
+          delay: 1m
+          history: '0'
+          trends: '0'
+          value_type: TEXT
+          description: 'JSON e.g. {"load1":0.84,"load5":0.53,"load15":0.37}. Master item for load averages.'
+          tags:
+            - tag: component
+              value: cpu
+        - uuid: d72c50427504467eb3abae41df309ff2
+          name: 'Yeastar: Load average (1m)'
+          type: DEPENDENT
+          key: yeastar.cpu.load1
+          delay: '0'
+          history: 30d
+          value_type: FLOAT
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.load1
+          master_item:
+            key: yeastar.cpu.load.raw
+          tags:
+            - tag: component
+              value: cpu
+        - uuid: 0bf45fefef1b43b18984b773210f300e
+          name: 'Yeastar: Load average (5m)'
+          type: DEPENDENT
+          key: yeastar.cpu.load5
+          delay: '0'
+          history: 30d
+          value_type: FLOAT
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.load5
+          master_item:
+            key: yeastar.cpu.load.raw
+          tags:
+            - tag: component
+              value: cpu
+        - uuid: 31011ff186134492ae0e7ea0332917e8
+          name: 'Yeastar: Load average (15m)'
+          type: DEPENDENT
+          key: yeastar.cpu.load15
+          delay: '0'
+          history: 30d
+          value_type: FLOAT
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.load15
+          master_item:
+            key: yeastar.cpu.load.raw
+          tags:
+            - tag: component
+              value: cpu
+        - uuid: 4883844f20664c30a12b200b15958a93
+          name: 'Yeastar: Asterisk status'
+          type: SNMP_AGENT
+          snmp_oid: 1.3.6.1.4.1.22736.3.1.11.0
+          key: yeastar.asterisk.status
+          delay: 1m
+          history: 7d
+          trends: '0'
+          value_type: CHAR
+          tags:
+            - tag: component
+              value: system
+          triggers:
+            - uuid: 556918683a744416b779b09f1bcf213b
+              expression: 'last(/Yeastar P-Series by SNMP/yeastar.asterisk.status)<>"running"'
+              name: 'Yeastar: Asterisk is not running'
+              opdata: 'Status: {ITEM.LASTVALUE1}'
+              priority: DISASTER
+              tags:
+                - tag: scope
+                  value: availability
+        - uuid: 781bd8f43a5b4901a504072a54a8e5db
+          name: 'Yeastar: Top 10 CPU processes'
+          type: SNMP_AGENT
+          snmp_oid: 1.3.6.1.4.1.22736.3.1.12.0
+          key: yeastar.cpu.top10
+          delay: 5m
+          history: 1d
+          trends: '0'
+          status: DISABLED
+          value_type: TEXT
+          description: 'Disabled by default. Enable on a host when troubleshooting.'
+          tags:
+            - tag: component
+              value: cpu
+        - uuid: 33a67f4824bb4a5a83a42010846a0645
+          name: 'Yeastar: Top 10 memory processes'
+          type: SNMP_AGENT
+          snmp_oid: 1.3.6.1.4.1.22736.3.1.13.0
+          key: yeastar.memory.top10
+          delay: 5m
+          history: 1d
+          trends: '0'
+          status: DISABLED
+          value_type: TEXT
+          description: 'Disabled by default. Enable on a host when troubleshooting.'
+          tags:
+            - tag: component
+              value: memory
+        # ---------------- Network ----------------
+        - uuid: f508267e23b549df83d887183c0da55f
+          name: 'Yeastar: Device name'
+          type: SNMP_AGENT
+          snmp_oid: 1.3.6.1.4.1.22736.3.2.1.0
+          key: yeastar.device.name
+          delay: 1h
+          history: 7d
+          trends: '0'
+          value_type: CHAR
+          inventory_link: NAME
+          preprocessing:
+            - type: DISCARD_UNCHANGED_HEARTBEAT
+              parameters:
+                - 1d
+          tags:
+            - tag: component
+              value: system
+        - uuid: 763703de9c98435d8d1ba28210c20219
+          name: 'Yeastar: LAN status'
+          type: SNMP_AGENT
+          snmp_oid: 1.3.6.1.4.1.22736.3.2.2.0
+          key: yeastar.lan.status
+          delay: 1m
+          history: 7d
+          trends: '0'
+          value_type: CHAR
+          tags:
+            - tag: component
+              value: network
+        - uuid: d4d2222c6d694a0397541f1e873d218c
+          name: 'Yeastar: LAN MAC address'
+          type: SNMP_AGENT
+          snmp_oid: 1.3.6.1.4.1.22736.3.2.3.0
+          key: yeastar.lan.mac
+          delay: 1h
+          history: 7d
+          trends: '0'
+          value_type: CHAR
+          inventory_link: MACADDRESS_A
+          preprocessing:
+            - type: DISCARD_UNCHANGED_HEARTBEAT
+              parameters:
+                - 1d
+          tags:
+            - tag: component
+              value: network
+        - uuid: febcda3b8a8b4d30a62400dc2eed13f3
+          name: 'Yeastar: LAN connection type'
+          type: SNMP_AGENT
+          snmp_oid: 1.3.6.1.4.1.22736.3.2.4.0
+          key: yeastar.lan.type
+          delay: 1h
+          history: 7d
+          trends: '0'
+          value_type: CHAR
+          preprocessing:
+            - type: DISCARD_UNCHANGED_HEARTBEAT
+              parameters:
+                - 1d
+          tags:
+            - tag: component
+              value: network
+        - uuid: 3e13b284288546a39ee1a79176038b17
+          name: 'Yeastar: LAN IP address'
+          type: SNMP_AGENT
+          snmp_oid: 1.3.6.1.4.1.22736.3.2.5.0
+          key: yeastar.lan.ip
+          delay: 1h
+          history: 7d
+          trends: '0'
+          value_type: CHAR
+          preprocessing:
+            - type: DISCARD_UNCHANGED_HEARTBEAT
+              parameters:
+                - 1d
+          tags:
+            - tag: component
+              value: network
+        - uuid: c6bfb06c0e524ca2874210a6bae14771
+          name: 'Yeastar: LAN subnet mask'
+          type: SNMP_AGENT
+          snmp_oid: 1.3.6.1.4.1.22736.3.2.6.0
+          key: yeastar.lan.mask
+          delay: 1h
+          history: 7d
+          trends: '0'
+          value_type: CHAR
+          preprocessing:
+            - type: DISCARD_UNCHANGED_HEARTBEAT
+              parameters:
+                - 1d
+          tags:
+            - tag: component
+              value: network
+        - uuid: 0a73114ce98d458cac1a231c2e6a6c3a
+          name: 'Yeastar: LAN gateway'
+          type: SNMP_AGENT
+          snmp_oid: 1.3.6.1.4.1.22736.3.2.7.0
+          key: yeastar.lan.gateway
+          delay: 1h
+          history: 7d
+          trends: '0'
+          value_type: CHAR
+          preprocessing:
+            - type: DISCARD_UNCHANGED_HEARTBEAT
+              parameters:
+                - 1d
+          tags:
+            - tag: component
+              value: network
+        - uuid: b702ec3498be4acda752cb218db86cb6
+          name: 'Yeastar: LAN primary DNS'
+          type: SNMP_AGENT
+          snmp_oid: 1.3.6.1.4.1.22736.3.2.8.0
+          key: yeastar.lan.dns1
+          delay: 1h
+          history: 7d
+          trends: '0'
+          value_type: CHAR
+          preprocessing:
+            - type: DISCARD_UNCHANGED_HEARTBEAT
+              parameters:
+                - 1d
+          tags:
+            - tag: component
+              value: network
+        - uuid: 7d6b6e19eccf4b4b9931c4ee475c1b29
+          name: 'Yeastar: LAN secondary DNS'
+          type: SNMP_AGENT
+          snmp_oid: 1.3.6.1.4.1.22736.3.2.9.0
+          key: yeastar.lan.dns2
+          delay: 1h
+          history: 7d
+          trends: '0'
+          value_type: CHAR
+          preprocessing:
+            - type: DISCARD_UNCHANGED_HEARTBEAT
+              parameters:
+                - 1d
+          tags:
+            - tag: component
+              value: network
+        - uuid: 8855430c177542ababec71037bb57b94
+          name: 'Yeastar: WAN MAC address'
+          type: SNMP_AGENT
+          snmp_oid: 1.3.6.1.4.1.22736.3.2.11.0
+          key: yeastar.wan.mac
+          delay: 1h
+          history: 7d
+          trends: '0'
+          value_type: CHAR
+          inventory_link: MACADDRESS_B
+          preprocessing:
+            - type: DISCARD_UNCHANGED_HEARTBEAT
+              parameters:
+                - 1d
+          tags:
+            - tag: component
+              value: network
+        - uuid: 84c789e8ed39424fafd45c802ad3884d
+          name: 'Yeastar: WAN connection type'
+          type: SNMP_AGENT
+          snmp_oid: 1.3.6.1.4.1.22736.3.2.12.0
+          key: yeastar.wan.type
+          delay: 1h
+          history: 7d
+          trends: '0'
+          value_type: CHAR
+          preprocessing:
+            - type: DISCARD_UNCHANGED_HEARTBEAT
+              parameters:
+                - 1d
+          tags:
+            - tag: component
+              value: network
+        - uuid: dd54ba60a576424f84b477b24d723de2
+          name: 'Yeastar: WAN IP address'
+          type: SNMP_AGENT
+          snmp_oid: 1.3.6.1.4.1.22736.3.2.13.0
+          key: yeastar.wan.ip
+          delay: 1h
+          history: 7d
+          trends: '0'
+          value_type: CHAR
+          preprocessing:
+            - type: DISCARD_UNCHANGED_HEARTBEAT
+              parameters:
+                - 1d
+          tags:
+            - tag: component
+              value: network
+        - uuid: 25303ecb80744f50a382fd518c3a0344
+          name: 'Yeastar: WAN subnet mask'
+          type: SNMP_AGENT
+          snmp_oid: 1.3.6.1.4.1.22736.3.2.14.0
+          key: yeastar.wan.mask
+          delay: 1h
+          history: 7d
+          trends: '0'
+          value_type: CHAR
+          preprocessing:
+            - type: DISCARD_UNCHANGED_HEARTBEAT
+              parameters:
+                - 1d
+          tags:
+            - tag: component
+              value: network
+        - uuid: 0117fc6932204cb886808b47618b825e
+          name: 'Yeastar: WAN gateway'
+          type: SNMP_AGENT
+          snmp_oid: 1.3.6.1.4.1.22736.3.2.15.0
+          key: yeastar.wan.gateway
+          delay: 1h
+          history: 7d
+          trends: '0'
+          value_type: CHAR
+          preprocessing:
+            - type: DISCARD_UNCHANGED_HEARTBEAT
+              parameters:
+                - 1d
+          tags:
+            - tag: component
+              value: network
+        - uuid: 1592c255883f4f9b92220bb286ac0f7d
+          name: 'Yeastar: WAN primary DNS'
+          type: SNMP_AGENT
+          snmp_oid: 1.3.6.1.4.1.22736.3.2.16.0
+          key: yeastar.wan.dns1
+          delay: 1h
+          history: 7d
+          trends: '0'
+          value_type: CHAR
+          preprocessing:
+            - type: DISCARD_UNCHANGED_HEARTBEAT
+              parameters:
+                - 1d
+          tags:
+            - tag: component
+              value: network
+        - uuid: 46c1c5a0427b4212b7dcd45a2c405cf0
+          name: 'Yeastar: WAN secondary DNS'
+          type: SNMP_AGENT
+          snmp_oid: 1.3.6.1.4.1.22736.3.2.17.0
+          key: yeastar.wan.dns2
+          delay: 1h
+          history: 7d
+          trends: '0'
+          value_type: CHAR
+          preprocessing:
+            - type: DISCARD_UNCHANGED_HEARTBEAT
+              parameters:
+                - 1d
+          tags:
+            - tag: component
+              value: network
+        - uuid: 5792d354b8fd4c338555186672837767
+          name: 'Yeastar: WAN status'
+          type: SNMP_AGENT
+          snmp_oid: 1.3.6.1.4.1.22736.3.2.10.0
+          key: yeastar.wan.status
+          delay: 1m
+          history: 7d
+          trends: '0'
+          value_type: CHAR
+          tags:
+            - tag: component
+              value: network
+          triggers:
+            - uuid: e3e7f811731746c7880277ebace83762
+              expression: '{$YEASTAR.WAN.MONITOR}=1 and last(/Yeastar P-Series by SNMP/yeastar.wan.status)<>"connect"'
+              name: 'Yeastar: WAN port is not connected'
+              opdata: 'Status: {ITEM.LASTVALUE1}'
+              priority: AVERAGE
+              description: 'Only evaluated when {$YEASTAR.WAN.MONITOR}=1 (dual-NIC deployments using the WAN port).'
+              tags:
+                - tag: scope
+                  value: availability
+        # ---------------- SNMP traps ----------------
+        - uuid: 110548dbdcd14591b97a361f8fe2fa80
+          name: 'Yeastar: Trap - PBX max concurrent calls'
+          type: SNMP_TRAP
+          key: 'snmptrap["pPBXMaxCCTraps"]'
+          delay: '0'
+          history: 30d
+          trends: '0'
+          value_type: LOG
+          logtimefmt: yyyyMMdd.hhmmss
+          tags:
+            - tag: component
+              value: traps
+          triggers:
+            - uuid: 788764aca85c457abfc2dfeb633bd238
+              expression: 'find(/Yeastar P-Series by SNMP/snmptrap["pPBXMaxCCTraps"],,"regexp","pPBXMaxCCTraps([^R]|$)")=1'
+              recovery_mode: RECOVERY_EXPRESSION
+              recovery_expression: 'find(/Yeastar P-Series by SNMP/snmptrap["pPBXMaxCCTraps"],,"like","pPBXMaxCCTrapsRecovery")=1'
+              name: 'Yeastar: PBX concurrent call limit reached (trap)'
+              priority: HIGH
+              manual_close: 'YES'
+              tags:
+                - tag: scope
+                  value: capacity
+        - uuid: 5184da1c6b1b4b589f629476d9a22ce3
+          name: 'Yeastar: Trap - trunk max concurrent calls'
+          type: SNMP_TRAP
+          key: 'snmptrap["pTrunkMaxCCTraps"]'
+          delay: '0'
+          history: 30d
+          trends: '0'
+          value_type: LOG
+          logtimefmt: yyyyMMdd.hhmmss
+          tags:
+            - tag: component
+              value: traps
+          triggers:
+            - uuid: 605d0cce52394bd2a62181411fe9a226
+              expression: 'find(/Yeastar P-Series by SNMP/snmptrap["pTrunkMaxCCTraps"],,"regexp","pTrunkMaxCCTraps([^R]|$)")=1'
+              recovery_mode: RECOVERY_EXPRESSION
+              recovery_expression: 'find(/Yeastar P-Series by SNMP/snmptrap["pTrunkMaxCCTraps"],,"like","pTrunkMaxCCTrapsRecovery")=1'
+              name: 'Yeastar: Trunk concurrent call limit reached (trap)'
+              priority: AVERAGE
+              manual_close: 'YES'
+              tags:
+                - tag: scope
+                  value: capacity
+        - uuid: 67b56f749b2247729adbf4ffa76c55e9
+          name: 'Yeastar: Trap - Asterisk'
+          type: SNMP_TRAP
+          key: 'snmptrap["pAsteriskTraps"]'
+          delay: '0'
+          history: 30d
+          trends: '0'
+          value_type: LOG
+          logtimefmt: yyyyMMdd.hhmmss
+          tags:
+            - tag: component
+              value: traps
+          triggers:
+            - uuid: 515bf14c29304c8f9c7436fd84d0e56f
+              expression: 'find(/Yeastar P-Series by SNMP/snmptrap["pAsteriskTraps"],,"regexp","pAsteriskTraps([^R]|$)")=1'
+              recovery_mode: RECOVERY_EXPRESSION
+              recovery_expression: 'find(/Yeastar P-Series by SNMP/snmptrap["pAsteriskTraps"],,"like","pAsteriskTrapsRecovery")=1'
+              name: 'Yeastar: Asterisk abnormal status (trap)'
+              priority: HIGH
+              manual_close: 'YES'
+              tags:
+                - tag: scope
+                  value: availability
+        - uuid: 41e0b93526e04883a2d5b8ec4fe09708
+          name: 'Yeastar: Trap - failed calls'
+          type: SNMP_TRAP
+          key: 'snmptrap["pCallFailedTraps"]'
+          delay: '0'
+          history: 30d
+          trends: '0'
+          value_type: LOG
+          logtimefmt: yyyyMMdd.hhmmss
+          description: 'Logged only; no trigger (can be noisy).'
+          tags:
+            - tag: component
+              value: traps
+        - uuid: 58676e6788424c3e9853250a5e8d10bf
+          name: 'Yeastar: Trap - trunk up/down'
+          type: SNMP_TRAP
+          key: 'snmptrap["p(SIP)?Trunk(Up|Down)"]'
+          delay: '0'
+          history: 30d
+          trends: '0'
+          value_type: LOG
+          logtimefmt: yyyyMMdd.hhmmss
+          description: 'Logged only; trunk alerting is handled by the polled trunk discovery.'
+          tags:
+            - tag: component
+              value: traps
+        - uuid: 776b1faf5d4b4f37b8ff8bb6e2dd8895
+          name: 'Yeastar: Trap - extension/phone up/down'
+          type: SNMP_TRAP
+          key: 'snmptrap["p(IPphone|Ext)(Up|Down)"]'
+          delay: '0'
+          history: 7d
+          trends: '0'
+          value_type: LOG
+          logtimefmt: yyyyMMdd.hhmmss
+          description: 'Logged only; extension alerting is handled by the polled extension discovery.'
+          tags:
+            - tag: component
+              value: traps
+        - uuid: e2ed36c9a0e64878a403fea6e9c60206
+          name: 'Yeastar: Trap - unmatched'
+          type: SNMP_TRAP
+          key: snmptrap.fallback
+          delay: '0'
+          history: 7d
+          trends: '0'
+          value_type: LOG
+          logtimefmt: yyyyMMdd.hhmmss
+          tags:
+            - tag: component
+              value: traps
+      discovery_rules:
+        - uuid: 049800337ddf4db1a85cb8e266aca63b
+          name: 'Extension discovery'
+          type: SNMP_AGENT
+          snmp_oid: 'discovery[{#EXT_NUM},1.3.6.1.4.1.22736.3.4.2.1.2,{#EXT_NAME},1.3.6.1.4.1.22736.3.4.2.1.3]'
+          key: yeastar.ext.discovery
+          delay: 1h
+          lifetime: 7d
+          filter:
+            evaltype: AND
+            conditions:
+              - macro: '{#EXT_NUM}'
+                value: '{$YEASTAR.EXT.NUM.MATCHES}'
+                formulaid: A
+              - macro: '{#EXT_NUM}'
+                value: '{$YEASTAR.EXT.NUM.NOT_MATCHES}'
+                operator: NOT_MATCHES_REGEX
+                formulaid: B
+          item_prototypes:
+            - uuid: 8d42e547cfaa4947a5432dc63c205407
+              name: 'Extension {#EXT_NUM} ({#EXT_NAME}): Status'
+              type: SNMP_AGENT
+              snmp_oid: '1.3.6.1.4.1.22736.3.4.2.1.4.{#SNMPINDEX}'
+              key: 'yeastar.ext.status[{#EXT_NUM}]'
+              delay: 2m
+              history: 7d
+              trends: '0'
+              value_type: CHAR
+              tags:
+                - tag: component
+                  value: extension
+                - tag: extension
+                  value: '{#EXT_NUM}'
+              trigger_prototypes:
+                - uuid: 25f7acfef4384110bae1cc331ecea549
+                  expression: '{$YEASTAR.EXT.ALERT:"{#EXT_NUM}"}=1 and last(/Yeastar P-Series by SNMP/yeastar.ext.status[{#EXT_NUM}])="offline" and count(/Yeastar P-Series by SNMP/yeastar.ext.status[{#EXT_NUM}],{$YEASTAR.EXT.OFFLINE.PERIOD},"ne","offline")=0'
+                  recovery_mode: RECOVERY_EXPRESSION
+                  recovery_expression: 'last(/Yeastar P-Series by SNMP/yeastar.ext.status[{#EXT_NUM}])<>"offline"'
+                  name: 'Yeastar: Extension {#EXT_NUM} ({#EXT_NAME}) is offline'
+                  priority: AVERAGE
+                  description: 'Only fires for extensions with {$YEASTAR.EXT.ALERT:"<ext>"}=1 (e.g. lift, door, refuge or reception phones).'
+                  dependencies:
+                    - name: 'Yeastar: No SNMP data from PBX'
+                      expression: 'nodata(/Yeastar P-Series by SNMP/yeastar.calls.concurrent,{$YEASTAR.NODATA.TIMEOUT})=1'
+                  tags:
+                    - tag: scope
+                      value: availability
+        - uuid: 418b80c1988d48a2b0de325ea9e38df6
+          name: 'Trunk discovery'
+          type: SNMP_AGENT
+          snmp_oid: 'discovery[{#TRUNK_NAME},1.3.6.1.4.1.22736.3.4.4.1.2,{#TRUNK_TYPE},1.3.6.1.4.1.22736.3.4.4.1.3]'
+          key: yeastar.trunk.discovery
+          delay: 1h
+          lifetime: 7d
+          filter:
+            evaltype: AND
+            conditions:
+              - macro: '{#TRUNK_NAME}'
+                value: '{$YEASTAR.TRUNK.NAME.MATCHES}'
+                formulaid: A
+              - macro: '{#TRUNK_NAME}'
+                value: '{$YEASTAR.TRUNK.NAME.NOT_MATCHES}'
+                operator: NOT_MATCHES_REGEX
+                formulaid: B
+          item_prototypes:
+            - uuid: 46623a276f3c42eb9159a05040bf6aa5
+              name: 'Trunk {#TRUNK_NAME} ({#TRUNK_TYPE}): Status'
+              type: SNMP_AGENT
+              snmp_oid: '1.3.6.1.4.1.22736.3.4.4.1.4.{#SNMPINDEX}'
+              key: 'yeastar.trunk.status[{#SNMPINDEX}]'
+              delay: 1m
+              history: 30d
+              trends: '0'
+              value_type: CHAR
+              tags:
+                - tag: component
+                  value: trunk
+                - tag: trunk
+                  value: '{#TRUNK_NAME}'
+              trigger_prototypes:
+                - uuid: ad4864030ecf4fe5926af4c1bd5c4949
+                  expression: '{$YEASTAR.TRUNK.ALERT:"{#TRUNK_NAME}"}=1 and find(/Yeastar P-Series by SNMP/yeastar.trunk.status[{#SNMPINDEX}],,"regexp","{$YEASTAR.TRUNK.STATUS.OK}")=0 and count(/Yeastar P-Series by SNMP/yeastar.trunk.status[{#SNMPINDEX}],{$YEASTAR.TRUNK.DOWN.PERIOD},"regexp","{$YEASTAR.TRUNK.STATUS.OK}")=0'
+                  recovery_mode: RECOVERY_EXPRESSION
+                  recovery_expression: 'find(/Yeastar P-Series by SNMP/yeastar.trunk.status[{#SNMPINDEX}],,"regexp","{$YEASTAR.TRUNK.STATUS.OK}")=1'
+                  name: 'Yeastar: Trunk {#TRUNK_NAME} is down'
+                  opdata: 'Status: {ITEM.LASTVALUE1}'
+                  priority: HIGH
+                  dependencies:
+                    - name: 'Yeastar: No SNMP data from PBX'
+                      expression: 'nodata(/Yeastar P-Series by SNMP/yeastar.calls.concurrent,{$YEASTAR.NODATA.TIMEOUT})=1'
+                  tags:
+                    - tag: scope
+                      value: availability
+      tags:
+        - tag: class
+          value: telephony
+        - tag: target
+          value: yeastar
+      macros:
+        - macro: '{$YEASTAR.CALLS.MAX}'
+          value: '30'
+          description: 'Licensed max concurrent calls for this PBX. Set per host.'
+        - macro: '{$YEASTAR.CALLS.WARN.PCT}'
+          value: '90'
+          description: 'Warn when concurrent calls reach this % of {$YEASTAR.CALLS.MAX}.'
+        - macro: '{$YEASTAR.CPU.UTIL.CRIT}'
+          value: '85'
+        - macro: '{$YEASTAR.MEMORY.UTIL.MAX}'
+          value: '90'
+        - macro: '{$YEASTAR.STORAGE.UTIL.WARN}'
+          value: '85'
+        - macro: '{$YEASTAR.STORAGE.UTIL.CRIT}'
+          value: '95'
+        - macro: '{$YEASTAR.NODATA.TIMEOUT}'
+          value: 5m
+        - macro: '{$YEASTAR.WAN.MONITOR}'
+          value: '0'
+          description: 'Set to 1 if the PBX WAN port is in use.'
+        - macro: '{$YEASTAR.EXT.ALERT}'
+          value: '0'
+          description: 'Default for extension offline alerting. Enable per extension with context, e.g. {$YEASTAR.EXT.ALERT:"2001"}=1.'
+        - macro: '{$YEASTAR.EXT.OFFLINE.PERIOD}'
+          value: 10m
+          description: 'Extension must be continuously offline this long before alerting.'
+        - macro: '{$YEASTAR.EXT.NUM.MATCHES}'
+          value: '.*'
+        - macro: '{$YEASTAR.EXT.NUM.NOT_MATCHES}'
+          value: CHANGE_IF_NEEDED
+        - macro: '{$YEASTAR.TRUNK.ALERT}'
+          value: '1'
+          description: 'Default for trunk alerting. Disable per trunk with context, e.g. {$YEASTAR.TRUNK.ALERT:"Backup SIP"}=0.'
+        - macro: '{$YEASTAR.TRUNK.STATUS.OK}'
+          value: '^(online|registered|ok)$'
+          description: 'Regex of trunk status values treated as healthy. Adjust after walking 1.3.6.1.4.1.22736.3.4.4.1.4.'
+        - macro: '{$YEASTAR.TRUNK.DOWN.PERIOD}'
+          value: 3m
+          description: 'Trunk must be unhealthy for this long before alerting.'
+        - macro: '{$YEASTAR.TRUNK.NAME.MATCHES}'
+          value: '.*'
+        - macro: '{$YEASTAR.TRUNK.NAME.NOT_MATCHES}'
+          value: CHANGE_IF_NEEDED
+  graphs:
+    - uuid: cbecdfa9ab0c4f7787b548b2c46e3956
+      name: 'Yeastar: Resource utilisation'
+      ymin_type_1: FIXED
+      ymax_type_1: FIXED
+      graph_items:
+        - color: 1A7C11
+          item:
+            host: 'Yeastar P-Series by SNMP'
+            key: yeastar.cpu.util
+        - sortorder: '1'
+          color: F63100
+          item:
+            host: 'Yeastar P-Series by SNMP'
+            key: yeastar.memory.util
+        - sortorder: '2'
+          color: 2774A4
+          item:
+            host: 'Yeastar P-Series by SNMP'
+            key: yeastar.storage.util
+    - uuid: c7432dfe2ad84503858dc70324807fc2
+      name: 'Yeastar: Concurrent calls'
+      graph_items:
+        - drawtype: GRADIENT_LINE
+          color: 199C0D
+          item:
+            host: 'Yeastar P-Series by SNMP'
+            key: yeastar.calls.concurrent
